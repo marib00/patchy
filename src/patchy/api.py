@@ -77,7 +77,7 @@ def replace_substring(
         _assert_substring_exists(current_source, expected_source, func.__name__)
         new_source = current_source.replace(expected_source, new_source)
 
-    _set_source(func, new_source)
+    _set_source(func, dedent(new_source))
 
 
 AnyFunc = TypeVar("AnyFunc", bound=Callable[..., Any])
@@ -411,3 +411,4 @@ def _assert_substring_exists(
             name=name, current_source=current_source, expected_source=expected_source
         )
         raise ValueError(msg)
+    

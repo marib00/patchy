@@ -1,74 +1,92 @@
 from __future__ import annotations
 
-import sys
-from textwrap import dedent
+import pytest
 
 import patchy.api
 
 
-def test_context_manager():
+def test_replace_substring():
     def sample() -> int:
-        return 1234
+        return 1
 
-    patch_text = """\
-        @@ -1,2 +1,2 @@
-         def sample() -> int:
-        -    return 1234
-        +    return 5678
-        """
+    assert sample() == 1
 
-    assert sample() == 1234
-    with patchy.temp_patch(sample, patch_text):
-        assert sample() == 5678
-    assert sample() == 1234
+    patchy.replace_substring(sample, "return 1", "return 42")
+
+    assert sample() == 42
 
 
-def test_decorator():
+def test_replace_substring_twice():
     def sample() -> int:
-        return 3456
+        return 1
 
-    patch_text = """\
-        @@ -1,2 +1,2 @@
-         def sample() -> int:
-        -    return 3456
-        +    return 7890
-        """
+    assert sample() == 1
 
-    @patchy.temp_patch(sample, patch_text)
-    def decorated() -> None:
-        assert sample() == 7890
+    patchy.replace_substring(sample, "return 1", "return 2")
+    patchy.replace_substring(sample, "return 2", "return 3")
 
-    assert sample() == 3456
-    decorated()
-    assert sample() == 3456
+    assert sample() == 3
 
 
-def test_patch_by_path(tmp_path):
-    package = tmp_path / "tmp_by_path_pkg"
-    package.mkdir()
-    (package / "__init__.py").write_text("")
-    (package / "mod.py").write_text(
-        dedent(
-            """\
-        class Foo(object):
-            def sample(self):
-                return 1
-        """
-        )
+def test_replace_substring_mutable_default_arg():
+    def foo(append: str | None = None, mutable: list[str] = []) -> int:  # noqa: B006
+        if append is not None:
+            mutable.append(append)
+        return len(mutable)
+
+    assert foo() == 0
+    assert foo("v1") == 1
+    assert foo("v2") == 2
+    assert foo(mutable=[]) == 0
+
+    patchy.replace_substring(foo, "    if append is not None:", "    len(mutable)\n    if append is not None:")
+
+    assert foo() == 2
+    assert foo("v3") == 3
+    assert foo(mutable=[]) == 0
+
+
+def test_replace_substring_instancemethod():
+    class Artist:
+        def method(self) -> str:
+            return "Chalk"
+
+    assert Artist().method() == "Chalk"
+
+    patchy.replace_substring(Artist.method, "return \"Chalk\"", "return \"Cheese\"")
+    
+    assert Artist().method() == "Cheese"
+
+
+def test_replace_substring_unexpected_source():
+    def sample() -> int:
+        return 2
+
+    assert sample() == 2
+
+    with pytest.raises(ValueError) as excinfo:
+        patchy.replace_substring(sample, "return 1", "return 42")
+
+    msg = str(excinfo.value)
+    assert "The code of 'sample' does not include the expected substring." in msg
+    assert "return 2" in msg
+    assert "return 1" in msg
+
+
+def test_replace_substring_no_expected_source():
+    def sample() -> int:
+        return 2
+
+    assert sample() == 2
+
+    patchy.replace_substring(
+        sample,
+        None,
+        """\
+        def sample() -> int:
+            return 42
+        """,
     )
-    patch_text = """\
-        @@ -2,1 +2,1 @@
-        -    return 1
-        +    return 2
-        """
 
-    sys.path.insert(0, str(tmp_path))
-    try:
-        with patchy.temp_patch("tmp_by_path_pkg.mod.Foo.sample", patch_text):
-            from tmp_by_path_pkg.mod import Foo
-
-            assert Foo().sample() == 2
-    finally:
-        sys.path.pop(0)
-
-    assert Foo().sample() == 1
+    assert sample() == 42
+    
