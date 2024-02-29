@@ -23,6 +23,34 @@ Patchy
 
 ..
 
+======
+
+This fork adds a new :code:`patchy.replace_substring` function and a :code:`patchy.temp_replace_substring` context manager for quick and dirty substitutions:
+
+.. code-block:: pycon
+
+    >>> def sample():
+    ...     print('hello')
+    ...     return 1
+    ...
+    >>> patchy.replace_substring(sample, 'return 1', 'return 9001')
+    >>> sample()
+    9001
+
+.. code-block:: pycon
+
+    >>> def sample():
+    ...     print('hello')
+    ...     return 1
+    ...
+    >>> with patchy.temp_replace_substring(sample, 'return 1', 'return 9001'):
+    ...     sample()
+    9001
+    >>> sample()
+    1
+
+======
+
 Patch the inner source of python functions at runtime.
 
 A quick example, making a function that returns 1 instead return 9001:
